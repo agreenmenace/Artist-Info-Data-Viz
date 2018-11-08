@@ -9,5 +9,5 @@ Tate: https://github.com/tategallery/collection
 
 Naming confusion in repository: 
 
-artist_data.csv - Tate\\
+artist_data.csv - Tate
 Artist.csv - Moma
