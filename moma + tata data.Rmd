@@ -1,0 +1,496 @@
+---
+title: "moma+tata data"
+output: html_document
+---
+
+#  Packages and Libraries 
+```{r}
+install.packages("mapdata")
+```
+```{r}
+library(ggplot2)
+library(ggmap)
+library(maps)
+library(mapdata)
+
+```
+
+```{r}
+library(dplyr)
+library(stringr)
+library(readr)
+```
+
+```{r}
+library(RColorBrewer)
+no_axes <- theme(
+  axis.text = element_blank(),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  panel.border = element_blank(),
+  panel.grid = element_blank(),
+  axis.title = element_blank()
+  )
+```
+
+#  MOMA 
+##  Graph 1: Gender of Artists
+ (decade)
+```{r}
+artists_moma <- read_csv("~/Desktop/data sets/MoMa collection/Artists.csv")
+artists_moma = filter(artists_moma,!is.na(Gender))
+
+artists_moma <- mutate(artists_moma,
+                       Gender = ifelse(Gender %in% c("Female", "female"), "Female", "Male"))
+ 
+  
+artist_moma_count_histogram <- ggplot(data = artists_moma[artists_moma$BeginDate != 0,], aes(x = BeginDate))
+```
+### a) histogram 
+```{r}
+artist_moma_count_histogram + 
+  geom_histogram(binwidth = 10, aes(fill = Gender)) +
+  labs(title = "Who are the artists with works in MOMA?",
+       subtitle = "Gender of artists through the decades",
+       x = "Birth Dates of Artists",
+       y = "Count") +
+  theme_classic() +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        axis.title.x = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.title.y = element_text(size = 14,
+                                    family = "Palatino"),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino")) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+```
+### b) pie chart
+```{r}
+
+artist_moma_pie <- ggplot(artists_moma, aes(x = factor(1))) 
+
+artist_moma_pie + 
+  geom_bar(aes(x = 1, fill = Gender, width = 1)) +
+  coord_polar("y", start = 0) +
+  labs(title = "Who are the artists with works in MOMA?",
+       subtitle = "Gender Composition of all artists") +
+  theme_classic()+
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.text = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank()) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+  
+  # F-2360, 19%
+  # M-10164, 81%
+```
+
+## Graph 2: Nationality and Gender
+
+```{r}
+artists_moma = filter(artists_moma,!is.na(Nationality))
+
+nationality_moma <- artists_moma %>%                      #filter(artists_moma,!is.na(Nationality))%>%
+                      group_by(Nationality)%>%
+                      summarise(total = n())%>%
+                      filter(total >= 150) %>%
+                      ungroup()
+
+
+nationality_moma_bar <- ggplot(data = artists_moma[artists_moma$Nationality %in% nationality_moma$Nationality,], aes(x = Nationality))
+
+nationality_moma_bar +
+  geom_bar(aes(fill = Gender), position = "fill") + 
+  labs(title = "Who are the artists with works in MOMA?",
+       subtitle = "Gender Makeup of Artists, Most Common Nationalities",
+       x = "Nationality",
+       y = "Proportion") +
+  theme_classic() +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 11,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        axis.title.x = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.title.y = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.text.x = element_text(angle = 30,
+                                   vjust = 1,
+                                   hjust = 0.9),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.ticks = element_blank(),
+        axis.line = element_blank()) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+
+```
+
+## Graph 3: Is art around the world represented equally? Chlorapleth map 
+```{r}
+demonyms <- read_csv("~/Documents/GitHub/chunkedextractor/src/main/resources/edu/knowitall/chunkedextractor/demonyms.csv")
+all_nationalities_moma <- artists_moma %>%
+                      #filter(artists_moma,!is.na(Nationality))%>%
+                      group_by(Nationality)%>%
+                      summarise(total = n())
+
+# rename demonyms col names, lost first row, but that country is 
+# not in the moma list
+names(demonyms) <- c("Nationality", "country_name")
+
+
+all_nationalities_moma <- left_join(all_nationalities_moma, demonyms, by = "Nationality")
+
+```
+
+```{r}
+world_map <- map_data('world') 
+
+# rename USA and UK
+
+all_nationalities_moma$country_name <- recode(all_nationalities_moma$country_name,
+                                              'United States' = 'USA',
+                                              'United Kingdom'= 'UK'
+                                              )
+
+#world_map_joined <- left_join(world_map, all_nationalities_moma, 
+ #                             by = c('region' = 'country_name'))
+
+world_map_joined <- left_join(all_nationalities_moma, world_map, 
+                              by = c('country_name' = 'region'))
+```
+
+```{r}
+cols_moma <- colorRampPalette(brewer.pal(11,'RdYlBu'))(length(world_map_joined))
+
+moma_map <- ggplot()+
+  geom_polygon(data = world_map, aes(long, lat, group = group),color = "grey28", size = 0.1) +
+  geom_polygon(data = world_map_joined, aes(long, lat, group = group, fill = total),color = "grey28", size = 0.3) +  
+  coord_fixed(1.1) +
+  theme_classic() +
+  no_axes +
+  labs(title = "Who are the artists with works in MOMA?",
+       subtitle = "Nationality of artists",
+       legend = "Count") +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.ticks = element_blank(),
+        axis.line = element_blank()) +
+  scale_fill_gradientn(colors = cols_moma, na.value = "black",trans = "log10")
+
+moma_map
+```
+-- graph 3 v2 (DISCARDED, because found better palette in v1,) ----
+------------ code kept just in case --------------
+data_mid <- all_nationalities_moma[all_nationalities_moma$total < 1000,]
+data_max <- all_nationalities_moma[all_nationalities_moma$total > 1000,]
+data_min <- all_nationalities_moma[all_nationalities_moma$total <= 5,]
+
+data_mid_joined <- left_join(world_map, data_mid, 
+                              by = c('region' = 'country_name'))
+data_max_joined <- left_join(data_max, world_map,
+                              by = c('country_name'='region' ))
+data_min_joined <- left_join(data_min, world_map,
+                              by = c('country_name'='region'))
+
+base <- ggplot(data_mid_joined, aes(long, lat, group = group)) + 
+  geom_polygon(aes(fill=total),colour=NA, size = .3) + 
+  scale_fill_gradient2(trans = "log10", high = rgb(102,102,255,maxColorValue
+=255),low = rgb(255,102,128, maxColorValue =255),
+  mid=rgb(178, 102, 225, maxColorValue =255),limits=c(5,1000)) + 
+  coord_fixed()
+  
+
+ext <- base +
+  geom_polygon(data = data_max_joined, fill = "blue") +
+  geom_polygon(data = data_min_joined, fill = "red") 
+
+ext
+------------ code kept just in case --------------
+
+# TATE
+## Graph 1
+```{r}
+artist_tate <- read_csv("~/Desktop/data sets/tate collection ~2014/artist_data.csv")
+artist_tate = filter(artist_tate,!is.na(gender))
+```
+### a) Histogram 
+```{r}
+  
+artist_tate_count_histogram <- ggplot(data = artist_tate, aes(x = yearOfBirth))
+
+artist_tate_count_histogram + 
+  geom_histogram(binwidth = 10, aes(fill = gender)) +
+  labs(title = "Who are the artists with works in Tate?",
+       subtitle = "Gender of artists through the decades",
+       x = "Birth Dates of Artists",
+       y = "Count") +
+  theme_classic() +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        axis.title.x = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.title.y = element_text(size = 14,
+                                    family = "Palatino"),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino")) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+
+```
+### b) Pie chart
+
+```{r}
+artist_tate_pie <- ggplot(artist_tate, aes(x = factor(1))) 
+
+artist_tate_pie + 
+  geom_bar(aes(x = 1, fill = gender, width = 1)) +
+  coord_polar("y", start = 0) +
+  labs(title = "Who are the artists with works in Tate?",
+       subtitle = "Gender Composition of all artists") +
+  theme_classic() +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.text = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank()) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+
+# F-521, 15%
+# M-2895, 85%
+
+```
+
+## Graph 2 
+```{r}
+
+place_of_birth_split <- strsplit(artist_tate$placeOfBirth, ", ")
+birth_country <- sapply(place_of_birth_split, tail, 1L)
+
+unique_birthcountry <-data_frame(unique(birth_country))
+
+artist_tate <- mutate(artist_tate, birth_country)
+
+artist_tate = filter(artist_tate,!is.na(birth_country))
+```
+
+```{r}
+#rename country names so it's consistent with universally accepted names, also bad coding in placeOfBirth column 
+artist_tate$birth_country <- recode(artist_tate$birth_country,
+                                    'Al-‘Iraq' = 'Iraq',
+                                    "Al-Jaza'ir" = "Algeria",
+                                    'Al-Lubnan' = 'Lebanon',
+                                    'As-Sudan' = 'Sudan',  
+                                    'Auteuil' = "France",
+                                    'Beckington' = 'UK',
+                                    'Brasil' = 'Brazil',
+                                    'Bénin' = 'Benin',
+                                    'België' = 'Belgium',
+                                    'Bermondsey' = 'UK',
+                                    'Bharat' = 'India',
+                                    'Blackheath' = 'UK',
+                                    'Bosna i Hercegovina' = 'Bosnia and Herzegovina',
+                                    'Braintree' = 'UK',
+                                    'Bristol' = 'UK',
+                                    'Cameroun' = 'Cameroon',
+                                    'Canterbury' = 'UK',
+                                    'Ceská Republika' = 'Czech Republic',
+                                    'Charlieu' = 'France',
+                                    'Charlotte Amalie' = 'France',
+                                    "Choson Minjujuui In'min Konghwaguk" = "North Korea",
+                                    'Chung-hua Min-kuo' = 'China',
+                                    'Danmark' = 'Denmark',
+                                    'Deutschland'= 'Germany',
+                                    'Douglas' = 'UK',
+                                    'Edinburgh' = 'UK',
+                                    'Eesti' = 'Estonia',
+                                    'Egremont' = 'UK',
+                                    'Éire' = 'UK',
+                                    'Ellás' = 'Greece',
+                                    'Epsom' = 'UK',
+                                    'Hertfordshire' = 'UK',
+                                    'Hrvatska' = 'Croatia',
+                                    'Îran' = 'Iran',
+                                    'Ísland' = 'Iceland',
+                                    'Isle of Man' = 'UK',
+                                    'Jugoslavija' = 'Yugoslavia',
+                                    'Kensington' = 'UK',
+                                    'Lao' = 'Laos',
+                                    'Latvija' = 'Latvia',
+                                    'Lietuva' = 'Lithuania',
+                                    'Liverpool' = 'UK',
+                                    'London' = 'UK',
+                                    'Magyarország' = 'Hungary',
+                                    'Makedonija' = 'Macedonia',
+                                    'Melmerby' = 'UK',
+                                    'México' = 'Mexico',
+                                    'Misr' = 'Egypt',
+                                    'Niederschlesien' = 'Germany',
+                                    'Nihon' = 'Japan',
+                                    'Norge' = 'Norway',
+                                    'Panamá' = 'Panama',
+                                    'Perth' = 'Australia',
+                                    'Perú' = 'Peru',
+                                    'Pilipinas' = 'Philipines',
+                                    'Plymouth' = 'UK',
+                                    'Prathet Thai' = 'Thailand',
+                                    'Rochdale' = 'UK',
+                                    'România' = 'Romania',
+                                    'Saint Hélier' = 'Jersey',
+                                    'Schlesien' = 'Poland',
+                                    'Schweiz' = 'Switzerland',
+                                    'Shqipëria' = 'Albania',
+                                    'Österreich' = 'Austria',
+                                    'Éire'= 'Ireland',
+                                    'España'= 'Spain',
+                                    'Italia' = 'Italy',
+                                    'Polska' = 'Poland',
+                                    'Nederland' = 'Netherlands',
+                                    'Rossiya' = 'Russia',
+                                    'Slovenija' = 'Slovenia',
+                                    'Slovenská Republika' = 'Slovakia',
+                                    'Solothurn' = 'Switzerland',
+                                    'Staten Island' = 'USA',
+                                    'United States' = 'USA',
+                                    'Stockholm' = 'Sweden', 
+                                    'Stoke on Trent' = 'UK',
+                                    'Suomi' = 'Finland',
+                                    'Suriyah' = 'Syria',
+                                    'Sverige' = 'Sweden',
+                                    "Taehan Min'guk" = "South Korea",
+                                    'Türkiye' = 'Turkey',
+                                    'Ukrayina' = 'Ukraine',
+                                    'Viet Nam' = 'Vietnam',
+                                    'Wimbledon' = 'UK',
+                                    "Yisra'el" = 'Israel',
+                                    'Zhonghua' = 'China'
+                                              )
+
+# nationality_tate: TOP nationalities of artists
+
+nationality_tate <- artist_tate %>%
+                      #filter(artists_moma,!is.na(birth_country))%>%
+                      #select(birth_country, gender)
+                      group_by(birth_country)%>%
+                      summarise(total = n())%>%
+                      filter(total >= 28) #taken top 13 nationalities
+
+
+
+nationality_tate_bar <- ggplot(data = artist_tate[artist_tate$birth_country %in% nationality_tate$birth_country,], aes(x = birth_country))
+
+nationality_tate_bar +
+  geom_bar(aes(fill = gender), position = 'fill') +
+  labs(title = "Who are the artists with works in Tate?",
+       subtitle = "Gender Makeup of Artists, Most Common Nationalities",
+       x = "Nationality",
+       y = "Proportion") +
+  theme_classic() +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 11,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        axis.title.x = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.title.y = element_text(size = 14,
+                                    family = "Palatino"),
+        axis.text.x = element_text(angle = 30,
+                                   vjust = 1,
+                                   hjust = 0.9),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.ticks = element_blank(),
+        axis.line = element_blank()) +
+  scale_fill_manual(name = "Gender",
+                     labels = c("Female", "Male"),
+                     values = c("Female" = "gold2",
+                                "Male" = "royalblue2" ))
+
+```
+
+## Graph 3: Is art around the world represented equally? Chlorapleth map 
+```{r}
+
+all_nationalities_tate <- artist_tate %>%
+                      group_by(birth_country)%>%
+                      summarise(total = n())
+
+
+world_map_joined_tate <- left_join(all_nationalities_tate, world_map,
+                              by = c('birth_country' = 'region'))
+```
+
+```{r}
+cols_tate <- colorRampPalette(brewer.pal(11,'RdYlBu'))(length(world_map_joined_tate))
+
+tate_map <- ggplot()+
+  geom_polygon(data = world_map, aes(long, lat, group = group),color = "grey28", size = 0.1) +
+  geom_polygon(data = world_map_joined_tate, aes(long, lat, group = group, fill = total), color = "grey28") +  
+  coord_fixed(1.1) +
+  theme_classic() +
+  no_axes +
+  labs(title = "Who are the Artists with Works in Tate?",
+       subtitle = "Nationality of Artists",
+       legend = "Count") +
+  theme(plot.title= element_text(size = 16,
+                                 family = "Palatino",
+                                 hjust = 0.5),
+        plot.subtitle = element_text(size = 14,
+                                     family = "Palatino",
+                                     hjust = 0.5),
+        legend.title = element_text(family = "Palatino"),
+        legend.text = element_text(family = "Palatino"),
+        axis.ticks = element_blank(),
+        axis.line = element_blank()) +
+  scale_fill_gradientn(colors = cols_tate, na.value = "black",trans = "log10")
+
+tate_map
+```
+
